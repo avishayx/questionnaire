@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Feedback Form</title>
+    <script>
+            document.addEventListener('DOMContentLoaded', function() {
+            loadInitialPage();  // Ensures the initial page content is loaded upon full page load
+        });
+
+        function loadInitialPage() {
+            var pageContent = document.getElementById('pageContent');
+            pageContent.innerHTML = `
+            <p>Please provide your phone number:</p>
+            <input type="text" id="phoneNumber" required>
+            <input type="button" value="Next" onclick="loadNameSelectionPage()">`;
+        }
+      
+      function loadNameSelectionPage() {
+        var phoneNumber = document.getElementById('phoneNumber').value;
+
+        // Validation: If phone number is empty or just white spaces
+        if(!phoneNumber.trim()) {
+          alert('Please enter a phone number.');
+          return;
+        }
+        
+        google.script.run.withSuccessHandler(showNameSelection).getNamesByPhoneNumber(phoneNumber);
+      }
+
+      function showNameSelection(names) {
+        var pageContent = document.getElementById('pageContent');
+        pageContent.innerHTML = '';
+
+        if (names.length === 0) {
+          pageContent.innerHTML = 'No names found for this phone number.';
+          return;
+        }
+
+        var form = document.createElement('form');
+        form.setAttribute('id', 'nameSelectionForm');
+
+        names.forEach(function(name, index) {
+          var checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.name = 'selectedName';
+          checkbox.value = name.firstName + ' ' + name.lastName;
+          checkbox.id = 'name' + index;
+
+          var label = document.createElement('label');
+          label.htmlFor = 'name' + index;
+          label.appendChild(document.createTextNode(name.firstName + ' ' + name.lastName));
+
+          form.appendChild(checkbox);
+          form.appendChild(label);
+          form.appendChild(document.createElement('br'));
+        });
+
+        var nextButton = document.createElement('input');
+        nextButton.type = 'button';
+        nextButton.value = 'Next';
+        nextButton.onclick = loadQuestionsPage;
+
+        var prevButton = document.createElement('input');
+        prevButton.type = 'button';
+        prevButton.value = 'Previous';
+        prevButton.onclick = loadInitialPage;  // Change here: Instead of reloading the page, it goes back to initial page
+
+        form.appendChild(prevButton);
+        form.appendChild(nextButton);
+        pageContent.appendChild(form);
+      }
+
+      function loadQuestionsPage() {
+        var form = document.getElementById('nameSelectionForm');
+        var selectedNames = [];
+        form.querySelectorAll('[name="selectedName"]:checked').forEach(function(checkbox) {
+          selectedNames.push(checkbox.value);
+        });
+
+        var pageContent = document.getElementById('pageContent');
+        pageContent.innerHTML = '';
+
+        if (selectedNames.length === 0) {
+          pageContent.innerHTML = 'No name selected. Please go back and select a name.';
+          return;
+        }
+
+        var questionsForm = document.createElement('form');
+        questionsForm.setAttribute('id', 'questionsForm');
+
+        selectedNames.forEach((name, index) => {
+          var fieldset = document.createElement('fieldset');
+          var legend = document.createElement('legend');
+          legend.appendChild(document.createTextNode(name));
+
+          fieldset.appendChild(legend);
+
+          var questions = [
+            'How are you feeling now?',
+            'Where are all the family members at this moment?'
+          ];
+
+          questions.forEach((question, qIndex) => {
+            var label = document.createElement('label');
+            label.appendChild(document.createTextNode(question));
+
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.name = 'response_' + index + '_' + qIndex;
+
+            fieldset.appendChild(label);
+            fieldset.appendChild(input);
+            fieldset.appendChild(document.createElement('br'));
+          });
+
+          questionsForm.appendChild(fieldset);
+        });
+
+        var submitButton = document.createElement('input');
+        submitButton.type = 'button';
+        submitButton.value = 'Submit';
+        submitButton.onclick = submitAnswers;
+
+        
+        questionsForm.appendChild(submitButton);
+        pageContent.appendChild(questionsForm);
+      }
+
+      function submitAnswers() {
+        var form = document.getElementById('questionsForm');
+        var answers = [];
+
+        form.querySelectorAll('fieldset').forEach((fieldset, index) => {
+          var name = fieldset.querySelector('legend').textContent;
+          var responses = [];
+
+          fieldset.querySelectorAll('input[type="text"]').forEach((input, qIndex) => {
+            responses.push({
+              question: input.previousSibling.textContent,
+              answer: input.value
+            });
+          });
+
+          answers.push({ name: name, responses: responses });
+        });
+
+        google.script.run.withSuccessHandler(function() {
+          alert('Answers submitted successfully!');
+        }).withFailureHandler(function(err) {
+          alert('Failed to submit answers: ' + err.message);
+        }).recordAnswersInSpreadsheet(answers);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="pageContent">
+      <p>Please provide your phone number:</p>
+      <input type="text" id="phoneNumber" required>
+      <input type="button" value="Next" onclick="loadNameSelectionPage()">
+    </div>
+  </body>
+</html>
